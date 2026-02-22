@@ -62,7 +62,6 @@ type AIBinding = {
 function normalizeValue(value: string): string {
   return value
     .trim()
-    .replace(/^\s+|\s+$/g, "")
     .replace(/[.?!,;:]+$/g, "")
     .replace(/\s+/g, " ");
 }
@@ -476,7 +475,7 @@ export class ContextDemoAgent extends ContextSessionAgent<
   }
 
   private persistFacts(sessionId: string, facts: UserFacts): void {
-    const entries: Array<{
+    const singletonEntries: Array<{
       key: string;
       value: string;
       source: string;
@@ -484,7 +483,7 @@ export class ContextDemoAgent extends ContextSessionAgent<
     }> = [];
 
     if (facts.location) {
-      entries.push({
+      singletonEntries.push({
         key: "location",
         value: facts.location,
         source: "profile-extractor",
@@ -493,7 +492,7 @@ export class ContextDemoAgent extends ContextSessionAgent<
     }
 
     if (facts.workplace) {
-      entries.push({
+      singletonEntries.push({
         key: "workplace",
         value: facts.workplace,
         source: "profile-extractor",
@@ -501,45 +500,19 @@ export class ContextDemoAgent extends ContextSessionAgent<
       });
     }
 
-    for (const like of facts.likes) {
-      entries.push({
-        key: "like",
-        value: like,
-        source: "profile-extractor",
-        score: 0.9
-      });
+    if (singletonEntries.length > 0) {
+      this.upsertMemory(sessionId, singletonEntries, { replaceByKey: true });
     }
 
-    this.upsertMemory(sessionId, entries, { replaceByKey: false });
+    const likeEntries = facts.likes.map((like) => ({
+      key: "like",
+      value: like,
+      source: "profile-extractor",
+      score: 0.9
+    }));
 
-    if (facts.location) {
-      this.upsertMemory(
-        sessionId,
-        [
-          {
-            key: "location",
-            value: facts.location,
-            source: "profile-extractor",
-            score: 0.96
-          }
-        ],
-        { replaceByKey: true }
-      );
-    }
-
-    if (facts.workplace) {
-      this.upsertMemory(
-        sessionId,
-        [
-          {
-            key: "workplace",
-            value: facts.workplace,
-            source: "profile-extractor",
-            score: 0.95
-          }
-        ],
-        { replaceByKey: true }
-      );
+    if (likeEntries.length > 0) {
+      this.upsertMemory(sessionId, likeEntries, { replaceByKey: false });
     }
   }
 

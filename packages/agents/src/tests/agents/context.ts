@@ -61,10 +61,55 @@ export class TestContextAgent extends ContextSessionAgent<
   }
 
   @callable()
+  appendUserMessages(sessionId: string, contents: string[]): void {
+    const events = contents.map((content) =>
+      contextMessageToEvent(sessionId, {
+        role: "user",
+        content
+      })
+    );
+    this.appendEvents(sessionId, events);
+  }
+
+  @callable()
+  tryAppendUserMessages(
+    sessionId: string,
+    contents: string[]
+  ): { ok: boolean; error?: string } {
+    try {
+      this.appendUserMessages(sessionId, contents);
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }
+
+  @callable()
   getEventActions(sessionId: string): string[] {
     return this.loadEvents(sessionId, { limit: 10_000, tail: false }).map(
       (event) => event.action
     );
+  }
+
+  @callable()
+  getFilteredEventActions(
+    sessionId: string,
+    options: {
+      limit?: number;
+      since?: number;
+      actions?: string[];
+      tail?: boolean;
+    }
+  ): string[] {
+    return this.loadEvents(sessionId, {
+      limit: options.limit,
+      since: options.since,
+      actions: options.actions as ContextSessionEvent["action"][] | undefined,
+      tail: options.tail
+    }).map((event) => event.action);
   }
 
   @callable()

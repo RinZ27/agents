@@ -1,9 +1,11 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    root: fileURLToPath(new URL(".", import.meta.url)),
     environment: "node",
     clearMocks: true,
-    include: ["src/experimental/context/__tests__/*.test.ts"]
+    include: ["*.test.ts"]
   }
 });

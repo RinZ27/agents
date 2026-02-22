@@ -55,6 +55,8 @@ describe("context pipeline", () => {
     const contents = out.messages.map((m) => m.content).join("\n");
     expect(contents).toContain("Artifact");
     expect(contents).toContain("Memory");
+    expect(out.messages[0]?.role).toBe("system");
+    expect(out.messages[1]?.role).toBe("system");
     expect(out.traces.length).toBeGreaterThan(0);
   });
 
@@ -101,6 +103,7 @@ describe("context pipeline", () => {
 
     const out = await runContextProcessors(state, processors);
     expect(out.metadata["structuredMemory"]).toEqual({ location: "Berlin" });
+    expect(out.messages[0]?.role).toBe("system");
     expect(out.messages[0]?.content).toContain("User lives in Berlin");
     expect(
       out.traces.some((trace) => trace.processor === "structured-memory")

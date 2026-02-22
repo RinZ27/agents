@@ -172,7 +172,6 @@ export function hydrateContextEvent(
       };
 
     case ContextEventAction.HANDOFF_NOTE:
-    default:
       return {
         id: row.id,
         sessionId: row.session_id,
@@ -184,6 +183,9 @@ export function hydrateContextEvent(
         toAgent: typeof meta.toAgent === "string" ? meta.toAgent : undefined,
         timestamp: row.created_at
       };
+
+    default:
+      throw new Error(`Unknown context event action: ${row.action}`);
   }
 }
 
@@ -203,8 +205,14 @@ export function dehydrateContextEvent(
 
   switch (event.action) {
     case ContextEventAction.USER_MESSAGE:
-    case ContextEventAction.AGENT_MESSAGE:
       return { ...base, content: event.content };
+
+    case ContextEventAction.AGENT_MESSAGE:
+      return {
+        ...base,
+        content: event.content,
+        metadata: serializeMetadata({ model: event.model })
+      };
 
     case ContextEventAction.COMPACTION:
       return {
@@ -336,7 +344,7 @@ export function contextEventToMessage(
 
     case ContextEventAction.MEMORY_SNIPPET:
       return {
-        role: "assistant",
+        role: "system",
         content: `[Memory] ${event.content}`,
         metadata: {
           stable: true,
@@ -347,7 +355,7 @@ export function contextEventToMessage(
 
     case ContextEventAction.ARTIFACT_REF:
       return {
-        role: "assistant",
+        role: "system",
         content: `[Artifact: ${event.artifactName}] ${event.content}`,
         metadata: {
           stable: event.ephemeral !== true,
@@ -358,7 +366,7 @@ export function contextEventToMessage(
 
     case ContextEventAction.HANDOFF_NOTE:
       return {
-        role: "assistant",
+        role: "system",
         content: `[Handoff] ${event.content}`,
         metadata: {
           stable: true,
@@ -404,6 +412,15 @@ export function contextMessageToEvent(
       toolName: message.name ?? "tool",
       content: message.content,
       output: message.content
+    };
+  }
+
+  if (message.role === "system") {
+    return {
+      ...common,
+      action: ContextEventAction.SYSTEM_INSTRUCTION,
+      content: message.content,
+      stable: message.metadata?.stable === true
     };
   }
 

@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@cloudflare/agents-ui": "*",
+    "@cloudflare/kumo": "^1.6.0",
+    "@phosphor-icons/react": "^2.1.10",
     "agents": "*"
   },
   "devDependencies": {

@@ -72,7 +72,7 @@ export function createMemoryRetrievalProcessor(
       if (snippets.length === 0) return state;
 
       const injected = snippets.map((snippet) => ({
-        role: "assistant" as const,
+        role: "system" as const,
         content: `[Memory:${snippet.source ?? "memory"}] ${snippet.content}`,
         metadata: {
           stable: true,
@@ -131,7 +131,7 @@ export function createStructuredMemoryProcessor(
       }
 
       const injected = snippets.map((snippet) => ({
-        role: "assistant" as const,
+        role: "system" as const,
         content: `[Memory:${snippet.source ?? "structured"}] ${snippet.content}`,
         metadata: {
           stable: true,
@@ -166,7 +166,7 @@ export function createArtifactResolverProcessor(
       if (handles.length === 0) return state;
 
       const artifactMessages = handles.map((handle) => ({
-        role: "assistant" as const,
+        role: "system" as const,
         content: `[Artifact ${handle.name}${
           handle.version ? `@${handle.version}` : ""
         }] ${handle.summary}`,

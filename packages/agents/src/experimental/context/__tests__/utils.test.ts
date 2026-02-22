@@ -95,4 +95,36 @@ describe("context utils", () => {
       expect(updatedMeta?.source).toBe("updated");
     }
   });
+
+  it("preserves model metadata for agent messages", () => {
+    const event: ContextSessionEvent = {
+      id: "agent1",
+      sessionId: "s1",
+      seq: 4,
+      timestamp: Date.now(),
+      action: ContextEventAction.AGENT_MESSAGE,
+      content: "hello",
+      model: "@cf/meta/llama-3.1-8b-instruct"
+    };
+
+    const hydrated = hydrateContextEvent(dehydrateContextEvent(event));
+    expect(hydrated.action).toBe(ContextEventAction.AGENT_MESSAGE);
+    if (hydrated.action === ContextEventAction.AGENT_MESSAGE) {
+      expect(hydrated.model).toBe("@cf/meta/llama-3.1-8b-instruct");
+    }
+  });
+
+  it("throws for unknown stored actions instead of coercing", () => {
+    expect(() =>
+      hydrateContextEvent({
+        id: "bad",
+        session_id: "s1",
+        seq: 1,
+        action: "unknown_action",
+        content: "x",
+        metadata: null,
+        created_at: Date.now()
+      })
+    ).toThrow(/Unknown context event action/);
+  });
 });
