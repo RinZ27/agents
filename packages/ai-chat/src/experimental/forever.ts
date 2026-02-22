@@ -1,6 +1,6 @@
 /**
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- * !! WARNING: EXPERIMENTAL — DO NOT USE IN PRODUCTION                  !!
+ * !! WARNING: EXPERIMENTAL API — EXPECT BREAKING CHANGES              !!
  * !!                                                                   !!
  * !! This API is under active development and WILL break between       !!
  * !! releases. Method names, types, behavior, and the mixin signature  !!
@@ -31,7 +31,7 @@ import { keepAlive } from "agents/experimental/forever";
 import type { AIChatAgent } from "../index";
 
 console.warn(
-  "[@cloudflare/ai-chat/experimental/forever] WARNING: You are using an experimental API that WILL break between releases. Do not use in production."
+  "[@cloudflare/ai-chat/experimental/forever] WARNING: You are using an experimental API that WILL break between releases."
 );
 
 // ── Mixin ─────────────────────────────────────────────────────────────

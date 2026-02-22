@@ -1,6 +1,6 @@
 /**
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- * !! WARNING: EXPERIMENTAL — DO NOT USE IN PRODUCTION                  !!
+ * !! WARNING: EXPERIMENTAL API — EXPECT BREAKING CHANGES              !!
  * !!                                                                   !!
  * !! This API is under active development and WILL break between       !!
  * !! releases. Method names, types, behavior, and the mixin signature  !!
@@ -34,7 +34,7 @@ import { nanoid } from "nanoid";
 import type { Agent } from "../index";
 
 console.warn(
-  "[agents/experimental/forever] WARNING: You are using an experimental API that WILL break between releases. Do not use in production."
+  "[agents/experimental/forever] WARNING: You are using an experimental API that WILL break between releases."
 );
 
 // ── Types ─────────────────────────────────────────────────────────────

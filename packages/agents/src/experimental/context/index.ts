@@ -1,6 +1,6 @@
 /**
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
- * !! WARNING: EXPERIMENTAL — DO NOT USE IN PRODUCTION                  !!
+ * !! WARNING: EXPERIMENTAL API — EXPECT BREAKING CHANGES              !!
  * !!                                                                   !!
  * !! This API is under active development and WILL break between       !!
  * !! releases. Method names, types, behavior, and schema may change    !!
@@ -19,6 +19,7 @@ export {
   createSelectTailEventsProcessor,
   createEventToMessageProcessor,
   createMemoryRetrievalProcessor,
+  createStructuredMemoryProcessor,
   createArtifactResolverProcessor,
   createStablePrefixProcessor,
   runContextProcessors
@@ -28,7 +29,9 @@ export {
   hydrateContextEvent,
   dehydrateContextEvent,
   contextEventToMessage,
-  contextMessageToEvent
+  contextMessageToEvent,
+  getEventMetadata,
+  setEventMetadata
 } from "./utils";
 export {
   workersAIContextAdapter,
@@ -39,9 +42,11 @@ export type {
   ArtifactResolver,
   CompactSessionOptions,
   CompactionSummarizer,
+  CompactionSummary,
   CompileContextOptions,
   ContextCompileState,
   ContextEventActionType,
+  ContextMemoryEntry,
   ContextMessage,
   ContextProcessor,
   ContextSessionEvent,
@@ -49,11 +54,15 @@ export type {
   HandoffIncludeMode,
   HandoffOptions,
   LoadContextEventsOptions,
+  LoadContextMemoryOptions,
   MemoryRetriever,
   MemorySnippet,
   StoredContextEvent,
+  StoredContextMemoryEntry,
   StoredContextSession,
+  StructuredMemoryProvider,
   ToolCall,
+  UpsertContextMemoryInput,
   WorkingContextOptions
 } from "./types";
 export { ContextEventAction } from "./types";
