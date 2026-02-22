@@ -36,6 +36,7 @@ describe("working context cache-friendly mapping", () => {
     expect(out[0]).toEqual({ role: "system", content: "stable-1" });
     expect(out[1]).toEqual({ role: "system", content: "dynamic-1" });
     expect(out[2]?.role).toBe("user");
+    expect("name" in (out[2] ?? {})).toBe(false);
     expect(out[3]?.tool_calls?.[0]?.function.name).toBe("search");
     expect(out[4]?.role).toBe("tool");
     expect(out[4]?.tool_call_id).toBe("call-1");

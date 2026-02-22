@@ -28,6 +28,15 @@ function serializeMetadata(metadata: Record<string, unknown>): string | null {
   return JSON.stringify(Object.fromEntries(entries));
 }
 
+function readMessageMetadata(
+  meta: Record<string, unknown>
+): Record<string, unknown> | undefined {
+  const value = meta["messageMetadata"];
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
 /** @experimental */
 export function getCompactionMetadata<T extends Record<string, unknown>>(
   event: ContextSessionEvent
@@ -78,6 +87,7 @@ export function hydrateContextEvent(
         seq: row.seq,
         action: ContextEventAction.USER_MESSAGE,
         content: row.content ?? "",
+        messageMetadata: readMessageMetadata(meta),
         timestamp: row.created_at
       };
 
@@ -89,6 +99,7 @@ export function hydrateContextEvent(
         action: ContextEventAction.AGENT_MESSAGE,
         content: row.content ?? "",
         model: typeof meta.model === "string" ? meta.model : undefined,
+        messageMetadata: readMessageMetadata(meta),
         timestamp: row.created_at
       };
 
@@ -102,6 +113,7 @@ export function hydrateContextEvent(
         toolCalls: Array.isArray(meta.toolCalls)
           ? (meta.toolCalls as ToolCall[])
           : [],
+        messageMetadata: readMessageMetadata(meta),
         timestamp: row.created_at
       };
 
@@ -115,6 +127,7 @@ export function hydrateContextEvent(
         toolCallId: typeof meta.toolCallId === "string" ? meta.toolCallId : "",
         toolName: typeof meta.toolName === "string" ? meta.toolName : "tool",
         output: meta.output,
+        messageMetadata: readMessageMetadata(meta),
         timestamp: row.created_at
       };
 
@@ -126,6 +139,7 @@ export function hydrateContextEvent(
         action: ContextEventAction.SYSTEM_INSTRUCTION,
         content: row.content ?? "",
         stable: meta.stable === true,
+        messageMetadata: readMessageMetadata(meta),
         timestamp: row.created_at
       };
 
@@ -155,6 +169,7 @@ export function hydrateContextEvent(
         content: row.content ?? "",
         source: typeof meta.source === "string" ? meta.source : undefined,
         score: typeof meta.score === "number" ? meta.score : undefined,
+        messageMetadata: readMessageMetadata(meta),
         timestamp: row.created_at
       };
 
@@ -174,6 +189,7 @@ export function hydrateContextEvent(
             ? meta.artifactVersion
             : undefined,
         ephemeral: meta.ephemeral === true,
+        messageMetadata: readMessageMetadata(meta),
         timestamp: row.created_at
       };
 
@@ -187,6 +203,7 @@ export function hydrateContextEvent(
         fromAgent:
           typeof meta.fromAgent === "string" ? meta.fromAgent : undefined,
         toAgent: typeof meta.toAgent === "string" ? meta.toAgent : undefined,
+        messageMetadata: readMessageMetadata(meta),
         timestamp: row.created_at
       };
 
@@ -211,13 +228,20 @@ export function dehydrateContextEvent(
 
   switch (event.action) {
     case ContextEventAction.USER_MESSAGE:
-      return { ...base, content: event.content };
+      return {
+        ...base,
+        content: event.content,
+        metadata: serializeMetadata({ messageMetadata: event.messageMetadata })
+      };
 
     case ContextEventAction.AGENT_MESSAGE:
       return {
         ...base,
         content: event.content,
-        metadata: serializeMetadata({ model: event.model })
+        metadata: serializeMetadata({
+          model: event.model,
+          messageMetadata: event.messageMetadata
+        })
       };
 
     case ContextEventAction.COMPACTION:
@@ -226,7 +250,8 @@ export function dehydrateContextEvent(
         content: event.content,
         metadata: serializeMetadata({
           replacesSeqRange: event.replacesSeqRange,
-          metadata: event.metadata
+          metadata: event.metadata,
+          messageMetadata: event.messageMetadata
         })
       };
 
@@ -234,23 +259,31 @@ export function dehydrateContextEvent(
       return {
         ...base,
         content: event.content,
-        metadata: JSON.stringify({ stable: event.stable === true })
+        metadata: serializeMetadata({
+          stable: event.stable === true,
+          messageMetadata: event.messageMetadata
+        })
       };
 
     case ContextEventAction.MEMORY_SNIPPET:
       return {
         ...base,
         content: event.content,
-        metadata: JSON.stringify({ source: event.source, score: event.score })
+        metadata: serializeMetadata({
+          source: event.source,
+          score: event.score,
+          messageMetadata: event.messageMetadata
+        })
       };
 
     case ContextEventAction.HANDOFF_NOTE:
       return {
         ...base,
         content: event.content,
-        metadata: JSON.stringify({
+        metadata: serializeMetadata({
           fromAgent: event.fromAgent,
-          toAgent: event.toAgent
+          toAgent: event.toAgent,
+          messageMetadata: event.messageMetadata
         })
       };
 
@@ -258,17 +291,21 @@ export function dehydrateContextEvent(
       return {
         ...base,
         content: event.content ?? null,
-        metadata: JSON.stringify({ toolCalls: event.toolCalls })
+        metadata: serializeMetadata({
+          toolCalls: event.toolCalls,
+          messageMetadata: event.messageMetadata
+        })
       };
 
     case ContextEventAction.TOOL_RESULT:
       return {
         ...base,
         content: event.content ?? null,
-        metadata: JSON.stringify({
+        metadata: serializeMetadata({
           toolCallId: event.toolCallId,
           toolName: event.toolName,
-          output: event.output
+          output: event.output,
+          messageMetadata: event.messageMetadata
         })
       };
 
@@ -276,10 +313,11 @@ export function dehydrateContextEvent(
       return {
         ...base,
         content: event.content,
-        metadata: JSON.stringify({
+        metadata: serializeMetadata({
           artifactName: event.artifactName,
           artifactVersion: event.artifactVersion,
-          ephemeral: event.ephemeral
+          ephemeral: event.ephemeral,
+          messageMetadata: event.messageMetadata
         })
       };
   }
@@ -295,6 +333,7 @@ export function contextEventToMessage(
         role: "user",
         content: event.content,
         metadata: {
+          ...event.messageMetadata,
           sourceEventId: event.id,
           sourceAction: event.action
         }
@@ -305,6 +344,7 @@ export function contextEventToMessage(
         role: "assistant",
         content: event.content,
         metadata: {
+          ...event.messageMetadata,
           sourceEventId: event.id,
           sourceAction: event.action
         }
@@ -316,6 +356,7 @@ export function contextEventToMessage(
         content: event.content ?? "",
         toolCalls: event.toolCalls,
         metadata: {
+          ...event.messageMetadata,
           sourceEventId: event.id,
           sourceAction: event.action
         }
@@ -332,6 +373,7 @@ export function contextEventToMessage(
             ? event.output
             : JSON.stringify(event.output ?? null)),
         metadata: {
+          ...event.messageMetadata,
           sourceEventId: event.id,
           sourceAction: event.action
         }
@@ -342,6 +384,7 @@ export function contextEventToMessage(
         role: "system",
         content: `[Compacted summary] ${event.content}`,
         metadata: {
+          ...event.messageMetadata,
           stable: true,
           sourceEventId: event.id,
           sourceAction: event.action
@@ -353,6 +396,7 @@ export function contextEventToMessage(
         role: "system",
         content: `[Memory] ${event.content}`,
         metadata: {
+          ...event.messageMetadata,
           stable: true,
           sourceEventId: event.id,
           sourceAction: event.action
@@ -364,6 +408,7 @@ export function contextEventToMessage(
         role: "system",
         content: `[Artifact: ${event.artifactName}] ${event.content}`,
         metadata: {
+          ...event.messageMetadata,
           stable: event.ephemeral !== true,
           sourceEventId: event.id,
           sourceAction: event.action
@@ -375,6 +420,7 @@ export function contextEventToMessage(
         role: "system",
         content: `[Handoff] ${event.content}`,
         metadata: {
+          ...event.messageMetadata,
           stable: true,
           sourceEventId: event.id,
           sourceAction: event.action,
@@ -406,7 +452,8 @@ export function contextMessageToEvent(
     return {
       ...common,
       action: ContextEventAction.USER_MESSAGE,
-      content: message.content
+      content: message.content,
+      messageMetadata: message.metadata
     };
   }
 
@@ -417,7 +464,8 @@ export function contextMessageToEvent(
       toolCallId: message.toolCallId ?? "",
       toolName: message.name ?? "tool",
       content: message.content,
-      output: message.content
+      output: message.content,
+      messageMetadata: message.metadata
     };
   }
 
@@ -426,7 +474,8 @@ export function contextMessageToEvent(
       ...common,
       action: ContextEventAction.SYSTEM_INSTRUCTION,
       content: message.content,
-      stable: message.metadata?.stable === true
+      stable: message.metadata?.stable === true,
+      messageMetadata: message.metadata
     };
   }
 
@@ -435,13 +484,15 @@ export function contextMessageToEvent(
       ...common,
       action: ContextEventAction.TOOL_CALL_REQUEST,
       content: message.content,
-      toolCalls: message.toolCalls
+      toolCalls: message.toolCalls,
+      messageMetadata: message.metadata
     };
   }
 
   return {
     ...common,
     action: ContextEventAction.AGENT_MESSAGE,
-    content: message.content
+    content: message.content,
+    messageMetadata: message.metadata
   };
 }

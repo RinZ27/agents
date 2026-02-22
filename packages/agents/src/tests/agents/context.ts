@@ -1,6 +1,7 @@
 import { callable } from "../../index.ts";
 import {
   ContextSessionAgent,
+  WorkingContext,
   contextMessageToEvent,
   type ContextSessionEvent,
   type UpsertContextMemoryInput
@@ -136,6 +137,55 @@ export class TestContextAgent extends ContextSessionAgent<
     }
 
     return lastCompaction.metadata ?? null;
+  }
+
+  @callable()
+  persistAssistantMessageWithMetadata(
+    sessionId: string,
+    content: string,
+    metadata: Record<string, unknown>
+  ): void {
+    const context = new WorkingContext();
+    context.addMessage({ role: "assistant", content, metadata });
+    this.persistWorkingContext(sessionId, context);
+  }
+
+  @callable()
+  getLastAssistantMessageMetadata(
+    sessionId: string
+  ): Record<string, unknown> | null {
+    const context = this.buildWorkingContext(sessionId, {
+      load: { limit: 10_000, tail: false }
+    });
+
+    const lastAssistant = [...context.messages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+
+    return (
+      (lastAssistant?.metadata as Record<string, unknown> | undefined) ?? null
+    );
+  }
+
+  @callable()
+  async compileContextWithMemory(
+    sessionId: string
+  ): Promise<{ traceProcessors: string[]; memoryMessageCount: number }> {
+    const context = await this.compileWorkingContext(sessionId, {
+      load: { limit: 20, tail: true },
+      memoryRetriever: {
+        async retrieve() {
+          return [{ id: "m1", content: "Remembered fact", source: "test" }];
+        }
+      }
+    });
+
+    return {
+      traceProcessors: context.traces.map((trace) => trace.processor),
+      memoryMessageCount: context.messages.filter(
+        (m) => m.role === "system" && m.content.includes("[Memory")
+      ).length
+    };
   }
 
   @callable()

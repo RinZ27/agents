@@ -84,6 +84,7 @@ interface BaseContextEvent {
   sessionId: string;
   seq: number;
   timestamp: number;
+  messageMetadata?: Record<string, unknown>;
 }
 
 export type ContextSessionEvent =
