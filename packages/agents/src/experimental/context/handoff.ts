@@ -71,7 +71,7 @@ export function createScopedHandoffContext(
   return new WorkingContext({
     systemInstructions: [...source.systemInstructions],
     staticSystemInstructions: [...source.staticSystemInstructions],
-    messages: [...handoffLead, ...translated],
+    messages: [...translated, ...handoffLead],
     traces: [...source.traces]
   });
 }

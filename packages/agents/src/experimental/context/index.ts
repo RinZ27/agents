@@ -30,6 +30,8 @@ export {
   dehydrateContextEvent,
   contextEventToMessage,
   contextMessageToEvent,
+  getCompactionMetadata,
+  setCompactionMetadata,
   getEventMetadata,
   setEventMetadata
 } from "./utils";

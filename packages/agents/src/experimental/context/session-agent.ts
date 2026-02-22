@@ -149,6 +149,9 @@ export class ContextSessionAgent<
     } LIMIT ?`;
     params.push(limit);
 
+    // Use raw SQL here because the query shape is dynamic (optional filters +
+    // optional tail subquery wrapper) and cannot be expressed ergonomically with
+    // a static tagged template literal.
     const query = tail
       ? `SELECT * FROM (${inner}) sub ORDER BY seq ASC`
       : inner;

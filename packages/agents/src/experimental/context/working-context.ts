@@ -59,9 +59,9 @@ export class WorkingContext {
     const convoMsgs = this.messages.map((msg) => ({
       role: msg.role,
       content: msg.content,
-      name: msg.name,
-      tool_call_id: msg.toolCallId,
-      tool_calls: msg.toolCalls
+      ...(msg.name ? { name: msg.name } : {}),
+      ...(msg.toolCallId ? { tool_call_id: msg.toolCallId } : {}),
+      ...(msg.toolCalls ? { tool_calls: msg.toolCalls } : {})
     }));
 
     return [...sysMsgs, ...convoMsgs];

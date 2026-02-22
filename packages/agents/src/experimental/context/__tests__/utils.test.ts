@@ -4,9 +4,9 @@ import {
   contextEventToMessage,
   contextMessageToEvent,
   dehydrateContextEvent,
-  getEventMetadata,
+  getCompactionMetadata,
   hydrateContextEvent,
-  setEventMetadata
+  setCompactionMetadata
 } from "../utils";
 
 describe("context utils", () => {
@@ -33,7 +33,7 @@ describe("context utils", () => {
     }
   });
 
-  it("maps compaction event to stable assistant message", () => {
+  it("maps compaction event to stable system message", () => {
     const message = contextEventToMessage({
       id: "e2",
       sessionId: "s1",
@@ -44,7 +44,7 @@ describe("context utils", () => {
     });
 
     expect(message).not.toBeNull();
-    expect(message?.role).toBe("assistant");
+    expect(message?.role).toBe("system");
     expect(message?.metadata?.stable).toBe(true);
   });
 
@@ -87,11 +87,11 @@ describe("context utils", () => {
 
     expect(hydrated.action).toBe(ContextEventAction.COMPACTION);
     if (hydrated.action === ContextEventAction.COMPACTION) {
-      const metadata = getEventMetadata<{ source: string }>(hydrated);
+      const metadata = getCompactionMetadata<{ source: string }>(hydrated);
       expect(metadata?.source).toBe("test");
 
-      const updated = setEventMetadata(hydrated, { source: "updated" });
-      const updatedMeta = getEventMetadata<{ source: string }>(updated);
+      const updated = setCompactionMetadata(hydrated, { source: "updated" });
+      const updatedMeta = getCompactionMetadata<{ source: string }>(updated);
       expect(updatedMeta?.source).toBe("updated");
     }
   });

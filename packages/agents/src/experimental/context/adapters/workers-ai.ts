@@ -37,16 +37,20 @@ export const workersAIContextAdapter = {
       result.push({
         role: msg.role,
         content: msg.content,
-        name: msg.name,
-        tool_call_id: msg.toolCallId,
-        tool_calls: msg.toolCalls?.map((call) => ({
-          id: call.id,
-          type: "function",
-          function: {
-            name: call.function.name,
-            arguments: JSON.stringify(call.function.arguments ?? {})
-          }
-        }))
+        ...(msg.name ? { name: msg.name } : {}),
+        ...(msg.toolCallId ? { tool_call_id: msg.toolCallId } : {}),
+        ...(msg.toolCalls
+          ? {
+              tool_calls: msg.toolCalls.map((call) => ({
+                id: call.id,
+                type: "function",
+                function: {
+                  name: call.function.name,
+                  arguments: JSON.stringify(call.function.arguments ?? {})
+                }
+              }))
+            }
+          : {})
       });
     }
 

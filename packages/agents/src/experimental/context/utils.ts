@@ -29,7 +29,7 @@ function serializeMetadata(metadata: Record<string, unknown>): string | null {
 }
 
 /** @experimental */
-export function getEventMetadata<T extends Record<string, unknown>>(
+export function getCompactionMetadata<T extends Record<string, unknown>>(
   event: ContextSessionEvent
 ): T | null {
   if (
@@ -44,7 +44,7 @@ export function getEventMetadata<T extends Record<string, unknown>>(
 }
 
 /** @experimental */
-export function setEventMetadata<T extends Record<string, unknown>>(
+export function setCompactionMetadata<T extends Record<string, unknown>>(
   event: ContextSessionEvent,
   metadata: T
 ): ContextSessionEvent {
@@ -57,6 +57,12 @@ export function setEventMetadata<T extends Record<string, unknown>>(
     metadata
   };
 }
+
+/** @deprecated Use getCompactionMetadata */
+export const getEventMetadata = getCompactionMetadata;
+
+/** @deprecated Use setCompactionMetadata */
+export const setEventMetadata = setCompactionMetadata;
 
 /** @experimental */
 export function hydrateContextEvent(
@@ -333,7 +339,7 @@ export function contextEventToMessage(
 
     case ContextEventAction.COMPACTION:
       return {
-        role: "assistant",
+        role: "system",
         content: `[Compacted summary] ${event.content}`,
         metadata: {
           stable: true,

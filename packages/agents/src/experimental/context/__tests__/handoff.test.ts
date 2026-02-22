@@ -55,4 +55,16 @@ describe("handoff modes", () => {
     expect(handoff.messages).toHaveLength(2);
     expect(handoff.messages.every((m) => m.role === "user")).toBe(true);
   });
+
+  it("appends latestUserPrompt after translated context", () => {
+    const ctx = buildWorkingContext([...baseEvents]);
+    const handoff = createScopedHandoffContext(ctx, {
+      include: "recent",
+      recentLimit: 2,
+      latestUserPrompt: "Now continue with booking"
+    });
+
+    expect(handoff.messages).toHaveLength(3);
+    expect(handoff.messages[2]?.content).toBe("Now continue with booking");
+  });
 });
