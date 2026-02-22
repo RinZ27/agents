@@ -1,0 +1,372 @@
+import {
+  ContextEventAction,
+  type ContextMessage,
+  type ContextSessionEvent,
+  type StoredContextEvent,
+  type ToolCall
+} from "./types";
+
+function parseMetadata(metadata: string | null): Record<string, unknown> {
+  if (!metadata) return {};
+  try {
+    const parsed = JSON.parse(metadata) as unknown;
+    if (parsed && typeof parsed === "object") {
+      return parsed as Record<string, unknown>;
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+/** @experimental */
+export function hydrateContextEvent(
+  row: StoredContextEvent
+): ContextSessionEvent {
+  const meta = parseMetadata(row.metadata);
+
+  switch (row.action) {
+    case ContextEventAction.USER_MESSAGE:
+      return {
+        id: row.id,
+        sessionId: row.session_id,
+        seq: row.seq,
+        action: ContextEventAction.USER_MESSAGE,
+        content: row.content ?? "",
+        timestamp: row.created_at
+      };
+
+    case ContextEventAction.AGENT_MESSAGE:
+      return {
+        id: row.id,
+        sessionId: row.session_id,
+        seq: row.seq,
+        action: ContextEventAction.AGENT_MESSAGE,
+        content: row.content ?? "",
+        model: typeof meta.model === "string" ? meta.model : undefined,
+        timestamp: row.created_at
+      };
+
+    case ContextEventAction.TOOL_CALL_REQUEST:
+      return {
+        id: row.id,
+        sessionId: row.session_id,
+        seq: row.seq,
+        action: ContextEventAction.TOOL_CALL_REQUEST,
+        content: row.content ?? undefined,
+        toolCalls: Array.isArray(meta.toolCalls)
+          ? (meta.toolCalls as ToolCall[])
+          : [],
+        timestamp: row.created_at
+      };
+
+    case ContextEventAction.TOOL_RESULT:
+      return {
+        id: row.id,
+        sessionId: row.session_id,
+        seq: row.seq,
+        action: ContextEventAction.TOOL_RESULT,
+        content: row.content ?? undefined,
+        toolCallId: typeof meta.toolCallId === "string" ? meta.toolCallId : "",
+        toolName: typeof meta.toolName === "string" ? meta.toolName : "tool",
+        output: meta.output,
+        timestamp: row.created_at
+      };
+
+    case ContextEventAction.SYSTEM_INSTRUCTION:
+      return {
+        id: row.id,
+        sessionId: row.session_id,
+        seq: row.seq,
+        action: ContextEventAction.SYSTEM_INSTRUCTION,
+        content: row.content ?? "",
+        stable: meta.stable === true,
+        timestamp: row.created_at
+      };
+
+    case ContextEventAction.COMPACTION:
+      return {
+        id: row.id,
+        sessionId: row.session_id,
+        seq: row.seq,
+        action: ContextEventAction.COMPACTION,
+        content: row.content ?? "",
+        replacesSeqRange: Array.isArray(meta.replacesSeqRange)
+          ? (meta.replacesSeqRange as [number, number])
+          : undefined,
+        timestamp: row.created_at
+      };
+
+    case ContextEventAction.MEMORY_SNIPPET:
+      return {
+        id: row.id,
+        sessionId: row.session_id,
+        seq: row.seq,
+        action: ContextEventAction.MEMORY_SNIPPET,
+        content: row.content ?? "",
+        source: typeof meta.source === "string" ? meta.source : undefined,
+        score: typeof meta.score === "number" ? meta.score : undefined,
+        timestamp: row.created_at
+      };
+
+    case ContextEventAction.ARTIFACT_REF:
+      return {
+        id: row.id,
+        sessionId: row.session_id,
+        seq: row.seq,
+        action: ContextEventAction.ARTIFACT_REF,
+        content: row.content ?? "",
+        artifactName:
+          typeof meta.artifactName === "string"
+            ? meta.artifactName
+            : "artifact",
+        artifactVersion:
+          typeof meta.artifactVersion === "string"
+            ? meta.artifactVersion
+            : undefined,
+        ephemeral: meta.ephemeral === true,
+        timestamp: row.created_at
+      };
+
+    case ContextEventAction.HANDOFF_NOTE:
+    default:
+      return {
+        id: row.id,
+        sessionId: row.session_id,
+        seq: row.seq,
+        action: ContextEventAction.HANDOFF_NOTE,
+        content: row.content ?? "",
+        fromAgent:
+          typeof meta.fromAgent === "string" ? meta.fromAgent : undefined,
+        toAgent: typeof meta.toAgent === "string" ? meta.toAgent : undefined,
+        timestamp: row.created_at
+      };
+  }
+}
+
+/** @experimental */
+export function dehydrateContextEvent(
+  event: ContextSessionEvent
+): StoredContextEvent {
+  const base: StoredContextEvent = {
+    id: event.id,
+    session_id: event.sessionId,
+    seq: event.seq,
+    action: event.action,
+    content: null,
+    metadata: null,
+    created_at: event.timestamp
+  };
+
+  switch (event.action) {
+    case ContextEventAction.USER_MESSAGE:
+    case ContextEventAction.AGENT_MESSAGE:
+    case ContextEventAction.COMPACTION:
+      return { ...base, content: event.content };
+
+    case ContextEventAction.SYSTEM_INSTRUCTION:
+      return {
+        ...base,
+        content: event.content,
+        metadata: JSON.stringify({ stable: event.stable === true })
+      };
+
+    case ContextEventAction.MEMORY_SNIPPET:
+      return {
+        ...base,
+        content: event.content,
+        metadata: JSON.stringify({ source: event.source, score: event.score })
+      };
+
+    case ContextEventAction.HANDOFF_NOTE:
+      return {
+        ...base,
+        content: event.content,
+        metadata: JSON.stringify({
+          fromAgent: event.fromAgent,
+          toAgent: event.toAgent
+        })
+      };
+
+    case ContextEventAction.TOOL_CALL_REQUEST:
+      return {
+        ...base,
+        content: event.content ?? null,
+        metadata: JSON.stringify({ toolCalls: event.toolCalls })
+      };
+
+    case ContextEventAction.TOOL_RESULT:
+      return {
+        ...base,
+        content: event.content ?? null,
+        metadata: JSON.stringify({
+          toolCallId: event.toolCallId,
+          toolName: event.toolName,
+          output: event.output
+        })
+      };
+
+    case ContextEventAction.ARTIFACT_REF:
+      return {
+        ...base,
+        content: event.content,
+        metadata: JSON.stringify({
+          artifactName: event.artifactName,
+          artifactVersion: event.artifactVersion,
+          ephemeral: event.ephemeral
+        })
+      };
+  }
+}
+
+/** @experimental */
+export function contextEventToMessage(
+  event: ContextSessionEvent
+): ContextMessage | null {
+  switch (event.action) {
+    case ContextEventAction.USER_MESSAGE:
+      return {
+        role: "user",
+        content: event.content,
+        metadata: {
+          sourceEventId: event.id,
+          sourceAction: event.action
+        }
+      };
+
+    case ContextEventAction.AGENT_MESSAGE:
+      return {
+        role: "assistant",
+        content: event.content,
+        metadata: {
+          sourceEventId: event.id,
+          sourceAction: event.action
+        }
+      };
+
+    case ContextEventAction.TOOL_CALL_REQUEST:
+      return {
+        role: "assistant",
+        content: event.content ?? "",
+        toolCalls: event.toolCalls,
+        metadata: {
+          sourceEventId: event.id,
+          sourceAction: event.action
+        }
+      };
+
+    case ContextEventAction.TOOL_RESULT:
+      return {
+        role: "tool",
+        name: event.toolName,
+        toolCallId: event.toolCallId,
+        content:
+          event.content ??
+          (typeof event.output === "string"
+            ? event.output
+            : JSON.stringify(event.output ?? null)),
+        metadata: {
+          sourceEventId: event.id,
+          sourceAction: event.action
+        }
+      };
+
+    case ContextEventAction.COMPACTION:
+      return {
+        role: "assistant",
+        content: `[Compacted summary] ${event.content}`,
+        metadata: {
+          stable: true,
+          sourceEventId: event.id,
+          sourceAction: event.action
+        }
+      };
+
+    case ContextEventAction.MEMORY_SNIPPET:
+      return {
+        role: "assistant",
+        content: `[Memory] ${event.content}`,
+        metadata: {
+          stable: true,
+          sourceEventId: event.id,
+          sourceAction: event.action
+        }
+      };
+
+    case ContextEventAction.ARTIFACT_REF:
+      return {
+        role: "assistant",
+        content: `[Artifact: ${event.artifactName}] ${event.content}`,
+        metadata: {
+          stable: event.ephemeral !== true,
+          sourceEventId: event.id,
+          sourceAction: event.action
+        }
+      };
+
+    case ContextEventAction.HANDOFF_NOTE:
+      return {
+        role: "assistant",
+        content: `[Handoff] ${event.content}`,
+        metadata: {
+          stable: true,
+          sourceEventId: event.id,
+          sourceAction: event.action,
+          sourceAgent: event.fromAgent
+        }
+      };
+
+    case ContextEventAction.SYSTEM_INSTRUCTION:
+      return null;
+
+    default:
+      return null;
+  }
+}
+
+/** @experimental */
+export function contextMessageToEvent(
+  sessionId: string,
+  message: ContextMessage
+): ContextSessionEvent {
+  const common = {
+    id: crypto.randomUUID(),
+    sessionId,
+    seq: -1,
+    timestamp: Date.now()
+  };
+
+  if (message.role === "user") {
+    return {
+      ...common,
+      action: ContextEventAction.USER_MESSAGE,
+      content: message.content
+    };
+  }
+
+  if (message.role === "tool") {
+    return {
+      ...common,
+      action: ContextEventAction.TOOL_RESULT,
+      toolCallId: message.toolCallId ?? "",
+      toolName: message.name ?? "tool",
+      content: message.content,
+      output: message.content
+    };
+  }
+
+  if (message.toolCalls && message.toolCalls.length > 0) {
+    return {
+      ...common,
+      action: ContextEventAction.TOOL_CALL_REQUEST,
+      content: message.content,
+      toolCalls: message.toolCalls
+    };
+  }
+
+  return {
+    ...common,
+    action: ContextEventAction.AGENT_MESSAGE,
+    content: message.content
+  };
+}

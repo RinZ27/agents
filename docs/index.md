@@ -45,6 +45,7 @@
 - [Codemode (Experimental)](./codemode.md) - LLM-generated executable code for tool orchestration
 - [Client Tools Continuation](./client-tools-continuation.md) - Handling tool calls across client/server
 - [Resumable Streaming](./resumable-streaming.md) - Automatic stream resumption on disconnect
+- [Context Management Example](../examples/context-management/) - Session/event context compilation with compaction and scoped handoffs
 
 ## MCP (Model Context Protocol)
 

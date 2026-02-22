@@ -1002,6 +1002,7 @@ The chat protocol uses typed JSON messages over WebSocket:
 
 - [AI Chat Example](../examples/ai-chat/) — Modern example with server tools, client tools, and approval
 - [Resumable Stream Chat](../examples/resumable-stream-chat/) — Automatic stream resumption demo
+- [Context Management Example](../examples/context-management/) — Session/event context compilation with compaction and scoped handoffs
 - [Human in the Loop Guide](../guides/human-in-the-loop/) — Tool approval with `needsApproval` and `onToolCall`
 - [Playground](../examples/playground/) — Kitchen-sink demo of all SDK features
 
