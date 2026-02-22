@@ -8,6 +8,7 @@ import {
   type PaymentRequirements
 } from "agents/x402";
 import { z } from "zod";
+import { toClientEvmSigner } from "@x402/evm";
 import { privateKeyToAccount } from "viem/accounts";
 
 // --- MCP Server with paid tools ---
@@ -66,12 +67,11 @@ export class PayAgent extends Agent<Env> {
 
     const account = privateKeyToAccount(pk as `0x${string}`);
 
-    const mcpUrl = `http://localhost:5173/mcp`;
-    const { id } = await this.mcp.connect(mcpUrl);
+    const { id } = await this.addMcpServer("pay-mcp", this.env.PayMCP);
 
     this.x402Client = withX402Client(this.mcp.mcpConnections[id].client, {
       network: "eip155:84532",
-      account
+      account: toClientEvmSigner(account)
     });
   }
 
@@ -127,7 +127,11 @@ export default {
     const url = new URL(request.url);
 
     if (url.pathname === "/mcp") {
-      return PayMCP.serve("/mcp").fetch(request, env, ctx);
+      return PayMCP.serve("/mcp", { binding: "PayMCP" }).fetch(
+        request,
+        env,
+        ctx
+      );
     }
 
     return (

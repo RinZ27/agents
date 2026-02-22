@@ -1,5 +1,6 @@
 {
-  "name": "@cloudflare/agents-mcp-example",
+  "name": "@cloudflare/agents-mcp-rpc-transport-demo",
+  "description": "MCP RPC transport — connect an Agent to an McpAgent via Durable Object bindings",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,9 +10,15 @@
   },
   "dependencies": {
     "@cloudflare/agents-ui": "*",
+    "@cloudflare/ai-chat": "*",
     "@cloudflare/kumo": "^1.7.0",
+    "@modelcontextprotocol/sdk": "*",
     "@phosphor-icons/react": "^2.1.10",
-    "agents": "*"
+    "agents": "*",
+    "ai": "*",
+    "nanoid": "^5.1.6",
+    "workers-ai-provider": "*",
+    "zod": "*"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4",

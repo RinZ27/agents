@@ -24,6 +24,7 @@ import {
   type MCPTransportOptions
 } from "./client-connection";
 import { toErrorMessage } from "./errors";
+import { RPC_DO_PREFIX } from "./rpc";
 import type { TransportType } from "./types";
 import type { MCPServerRow } from "./client-storage";
 import type { AgentMcpOAuthProvider } from "./do-oauth-client-provider";
@@ -263,8 +264,43 @@ export class MCPClientManager {
   }
 
   /**
+   * Get saved RPC servers from storage (servers with rpc:// URLs).
+   * These are restored separately by the Agent class since they need env bindings.
+   */
+  getRpcServersFromStorage(): MCPServerRow[] {
+    return this.getServersFromStorage().filter((s) =>
+      s.server_url.startsWith(RPC_DO_PREFIX)
+    );
+  }
+
+  /**
+   * Save an RPC server to storage for hibernation recovery.
+   * The bindingName is stored in server_options so the Agent can look up
+   * the namespace from env during restore.
+   */
+  saveRpcServerToStorage(
+    id: string,
+    name: string,
+    normalizedName: string,
+    bindingName: string,
+    props?: Record<string, unknown>
+  ): void {
+    this.saveServerToStorage({
+      id,
+      name,
+      server_url: `${RPC_DO_PREFIX}${normalizedName}`,
+      client_id: null,
+      auth_url: null,
+      callback_url: "",
+      server_options: JSON.stringify({ bindingName, props })
+    });
+  }
+
+  /**
    * Restore MCP server connections from storage
-   * This method is called on Agent initialization to restore previously connected servers
+   * This method is called on Agent initialization to restore previously connected servers.
+   * RPC servers (rpc:// URLs) are skipped here -- they are restored by the Agent class
+   * which has access to env bindings.
    *
    * @param clientName Name to use for OAuth client (typically the agent instance name)
    */
@@ -281,6 +317,10 @@ export class MCPClientManager {
     }
 
     for (const server of servers) {
+      if (server.server_url.startsWith(RPC_DO_PREFIX)) {
+        continue;
+      }
+
       const existingConn = this.mcpConnections[server.id];
 
       // Skip if connection already exists and is in a good state
@@ -1206,10 +1246,11 @@ export class MCPClientManager {
       | typeof CompatibilityCallToolResultSchema,
     options?: RequestOptions
   ) {
-    const unqualifiedName = params.name.replace(`${params.serverId}.`, "");
-    return this.mcpConnections[params.serverId].client.callTool(
+    const { serverId, ...mcpParams } = params;
+    const unqualifiedName = mcpParams.name.replace(`${serverId}.`, "");
+    return this.mcpConnections[serverId].client.callTool(
       {
-        ...params,
+        ...mcpParams,
         name: unqualifiedName
       },
       resultSchema,
