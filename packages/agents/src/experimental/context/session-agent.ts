@@ -9,10 +9,14 @@ import {
 import type {
   CompactSessionOptions,
   CompileContextOptions,
+  ContextMemoryEntry,
   ContextSessionEvent,
   LoadContextEventsOptions,
+  LoadContextMemoryOptions,
   StoredContextEvent,
-  StoredContextSession
+  StoredContextMemoryEntry,
+  StoredContextSession,
+  UpsertContextMemoryInput
 } from "./types";
 
 const DEFAULT_LOAD_LIMIT = 50;
@@ -52,6 +56,29 @@ export class ContextSessionAgent<
       CREATE INDEX IF NOT EXISTS idx_context_events_session_seq
       ON cf_agents_context_events(session_id, seq)
     `;
+
+    this.sql`
+      CREATE TABLE IF NOT EXISTS cf_agents_context_memory (
+        id TEXT PRIMARY KEY NOT NULL,
+        session_id TEXT NOT NULL,
+        memory_key TEXT NOT NULL,
+        memory_value TEXT NOT NULL,
+        source TEXT,
+        score REAL,
+        metadata TEXT,
+        updated_at INTEGER NOT NULL
+      )
+    `;
+
+    this.sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_context_memory_session_key_value
+      ON cf_agents_context_memory(session_id, memory_key, memory_value)
+    `;
+
+    this.sql`
+      CREATE INDEX IF NOT EXISTS idx_context_memory_session_key_updated
+      ON cf_agents_context_memory(session_id, memory_key, updated_at DESC)
+    `;
   }
 
   createSession(metadata?: Record<string, unknown>): string {
@@ -88,6 +115,8 @@ export class ContextSessionAgent<
     this.ctx.storage.transactionSync(() => {
       this
         .sql`DELETE FROM cf_agents_context_events WHERE session_id = ${sessionId}`;
+      this
+        .sql`DELETE FROM cf_agents_context_memory WHERE session_id = ${sessionId}`;
       this.sql`DELETE FROM cf_agents_context_sessions WHERE id = ${sessionId}`;
     });
   }
@@ -181,6 +210,126 @@ export class ContextSessionAgent<
     });
   }
 
+  upsertMemory(
+    sessionId: string,
+    entries: UpsertContextMemoryInput[],
+    options: { replaceByKey?: boolean } = {}
+  ): void {
+    if (entries.length === 0) return;
+    if (!this.getSession(sessionId)) {
+      throw new Error(`Session ${sessionId} not found`);
+    }
+
+    const now = Date.now();
+
+    this.ctx.storage.transactionSync(() => {
+      for (const entry of entries) {
+        const key = entry.key.trim();
+        const value = entry.value.trim();
+        if (key.length === 0 || value.length === 0) continue;
+
+        if (options.replaceByKey === true) {
+          this.sql`
+            DELETE FROM cf_agents_context_memory
+            WHERE session_id = ${sessionId} AND memory_key = ${key}
+          `;
+        }
+
+        this.sql`
+          INSERT OR REPLACE INTO cf_agents_context_memory
+            (id, session_id, memory_key, memory_value, source, score, metadata, updated_at)
+          VALUES
+            (${crypto.randomUUID()}, ${sessionId}, ${key}, ${value}, ${
+              entry.source ?? null
+            }, ${entry.score ?? null}, ${
+              entry.metadata ? JSON.stringify(entry.metadata) : null
+            }, ${now})
+        `;
+      }
+
+      this.sql`
+        UPDATE cf_agents_context_sessions
+        SET updated_at = ${now}
+        WHERE id = ${sessionId}
+      `;
+    });
+  }
+
+  loadMemory(
+    sessionId: string,
+    options: LoadContextMemoryOptions = {}
+  ): ContextMemoryEntry[] {
+    const limit = options.limit ?? 200;
+    const keys = options.keys ?? [];
+
+    const rows =
+      keys.length === 0
+        ? this.sql<StoredContextMemoryEntry>`
+            SELECT id, session_id, memory_key, memory_value, source, score, metadata, updated_at
+            FROM cf_agents_context_memory
+            WHERE session_id = ${sessionId}
+            ORDER BY updated_at DESC
+            LIMIT ${limit}
+          `
+        : this.ctx.storage.sql.exec(
+            `
+            SELECT id, session_id, memory_key, memory_value, source, score, metadata, updated_at
+            FROM cf_agents_context_memory
+            WHERE session_id = ? AND memory_key IN (${keys.map(() => "?").join(",")})
+            ORDER BY updated_at DESC
+            LIMIT ?
+          `,
+            sessionId,
+            ...keys,
+            limit
+          );
+
+    return [...rows].map((row) => {
+      const typed = row as StoredContextMemoryEntry;
+      let metadata: Record<string, unknown> | undefined;
+      if (typed.metadata) {
+        try {
+          const parsed = JSON.parse(typed.metadata) as unknown;
+          if (parsed && typeof parsed === "object") {
+            metadata = parsed as Record<string, unknown>;
+          }
+        } catch {
+          // ignore malformed metadata
+        }
+      }
+
+      return {
+        id: typed.id,
+        sessionId: typed.session_id,
+        key: typed.memory_key,
+        value: typed.memory_value,
+        source: typed.source ?? undefined,
+        score: typed.score ?? undefined,
+        metadata,
+        updatedAt: typed.updated_at
+      } satisfies ContextMemoryEntry;
+    });
+  }
+
+  deleteMemory(sessionId: string, keys?: string[]): void {
+    if (!keys || keys.length === 0) {
+      this.sql`
+        DELETE FROM cf_agents_context_memory
+        WHERE session_id = ${sessionId}
+      `;
+      return;
+    }
+
+    this.ctx.storage.transactionSync(() => {
+      for (const key of keys) {
+        this.sql`
+          DELETE FROM cf_agents_context_memory
+          WHERE session_id = ${sessionId} AND memory_key = ${key}
+        `;
+      }
+    });
+  }
+
   async compactSession(
     sessionId: string,
     options: CompactSessionOptions
@@ -203,6 +352,8 @@ export class ContextSessionAgent<
       sessionId,
       events: compactable
     });
+    const resolvedSummary =
+      typeof summary === "string" ? { content: summary } : summary;
 
     const summaryEvent: ContextSessionEvent = {
       id: crypto.randomUUID(),
@@ -210,8 +361,12 @@ export class ContextSessionAgent<
       seq: -1,
       timestamp: Date.now(),
       action: "compaction",
-      content: summary,
-      replacesSeqRange: [compactable[0]?.seq ?? 0, compactable.at(-1)?.seq ?? 0]
+      content: resolvedSummary.content,
+      replacesSeqRange: [
+        compactable[0]?.seq ?? 0,
+        compactable.at(-1)?.seq ?? 0
+      ],
+      metadata: resolvedSummary.metadata
     };
 
     this.appendEvents(sessionId, [summaryEvent]);
@@ -274,6 +429,7 @@ export class ContextSessionAgent<
 
   async destroy() {
     this.sql`DROP TABLE IF EXISTS cf_agents_context_events`;
+    this.sql`DROP TABLE IF EXISTS cf_agents_context_memory`;
     this.sql`DROP TABLE IF EXISTS cf_agents_context_sessions`;
     await super.destroy();
   }

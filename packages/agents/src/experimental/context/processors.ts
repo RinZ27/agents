@@ -6,7 +6,8 @@ import {
   type ContextCompileState,
   type ContextProcessor,
   type ContextSessionEvent,
-  type MemoryRetriever
+  type MemoryRetriever,
+  type StructuredMemoryProvider
 } from "./types";
 
 const DEFAULT_LIMIT = 50;
@@ -83,6 +84,66 @@ export function createMemoryRetrievalProcessor(
 
       return {
         ...state,
+        messages: [...injected, ...state.messages]
+      };
+    }
+  };
+}
+
+/** @experimental */
+export function createStructuredMemoryProcessor(
+  provider: StructuredMemoryProvider
+): ContextProcessor {
+  return {
+    name: "structured-memory",
+    async process(state) {
+      const latest = latestUserMessage(state.events);
+      const memory = await provider.load({
+        sessionId: state.sessionId,
+        latestUserMessage: latest,
+        messages: state.messages
+      });
+
+      const mergedMetadata = {
+        ...state.metadata,
+        structuredMemory: memory
+      };
+
+      if (!provider.toSnippets) {
+        return {
+          ...state,
+          metadata: mergedMetadata
+        };
+      }
+
+      const snippets = await provider.toSnippets({
+        memory,
+        sessionId: state.sessionId,
+        latestUserMessage: latest,
+        messages: state.messages
+      });
+
+      if (snippets.length === 0) {
+        return {
+          ...state,
+          metadata: mergedMetadata
+        };
+      }
+
+      const injected = snippets.map((snippet) => ({
+        role: "assistant" as const,
+        content: `[Memory:${snippet.source ?? "structured"}] ${snippet.content}`,
+        metadata: {
+          stable: true,
+          source: snippet.source,
+          score: snippet.score,
+          memoryId: snippet.id
+        }
+      }));
+
+      return {
+        ...state,
+        metadata: mergedMetadata,
         messages: [...injected, ...state.messages]
       };
     }
@@ -182,6 +243,12 @@ export function createDefaultProcessors(
     createSelectTailEventsProcessor(limit),
     createEventToMessageProcessor()
   ];
+
+  if (options.structuredMemoryProvider) {
+    processors.push(
+      createStructuredMemoryProcessor(options.structuredMemoryProvider)
+    );
+  }
 
   if (options.memoryRetriever) {
     processors.push(createMemoryRetrievalProcessor(options.memoryRetriever));

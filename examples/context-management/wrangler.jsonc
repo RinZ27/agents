@@ -3,6 +3,10 @@
   "name": "context-management-demo",
   "main": "src/server.ts",
   "compatibility_date": "2026-01-28",
+  "ai": {
+    "binding": "AI",
+    "remote": true
+  },
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "not_found_handling": "single-page-application",

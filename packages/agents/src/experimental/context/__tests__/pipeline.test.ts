@@ -58,6 +58,55 @@ describe("context pipeline", () => {
     expect(out.traces.length).toBeGreaterThan(0);
   });
 
+  it("supports structured memory provider metadata and snippet injection", async () => {
+    const now = Date.now();
+    const events = [
+      {
+        id: "sm-1",
+        sessionId: "s1",
+        seq: 0,
+        timestamp: now,
+        action: ContextEventAction.USER_MESSAGE,
+        content: "I live in Berlin"
+      }
+    ];
+
+    const base = buildWorkingContext(events);
+    const state: ContextCompileState = {
+      sessionId: "s1",
+      events,
+      messages: base.messages,
+      systemInstructions: [],
+      staticSystemInstructions: [],
+      traces: [],
+      metadata: {}
+    };
+
+    const processors = createDefaultProcessors({
+      structuredMemoryProvider: {
+        async load() {
+          return { location: "Berlin" };
+        },
+        async toSnippets({ memory }) {
+          return [
+            {
+              id: "sm-snippet",
+              content: `User lives in ${String(memory["location"] ?? "")}`,
+              source: "structured-memory"
+            }
+          ];
+        }
+      }
+    });
+
+    const out = await runContextProcessors(state, processors);
+    expect(out.metadata["structuredMemory"]).toEqual({ location: "Berlin" });
+    expect(out.messages[0]?.content).toContain("User lives in Berlin");
+    expect(
+      out.traces.some((trace) => trace.processor === "structured-memory")
+    ).toBe(true);
+  });
+
   it("creates latest-turn scoped handoff with recasting", () => {
     const ctx = buildWorkingContext([
       {

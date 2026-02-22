@@ -19,6 +19,45 @@ function parseMetadata(metadata: string | null): Record<string, unknown> {
   }
 }
 
+function serializeMetadata(metadata: Record<string, unknown>): string | null {
+  const entries = Object.entries(metadata).filter(
+    ([, value]) => value !== undefined
+  );
+
+  if (entries.length === 0) return null;
+  return JSON.stringify(Object.fromEntries(entries));
+}
+
+/** @experimental */
+export function getEventMetadata<T extends Record<string, unknown>>(
+  event: ContextSessionEvent
+): T | null {
+  if (
+    event.action !== ContextEventAction.COMPACTION ||
+    !event.metadata ||
+    typeof event.metadata !== "object"
+  ) {
+    return null;
+  }
+
+  return event.metadata as T;
+}
+
+/** @experimental */
+export function setEventMetadata<T extends Record<string, unknown>>(
+  event: ContextSessionEvent,
+  metadata: T
+): ContextSessionEvent {
+  if (event.action !== ContextEventAction.COMPACTION) {
+    return event;
+  }
+
+  return {
+    ...event,
+    metadata
+  };
+}
+
 /** @experimental */
 export function hydrateContextEvent(
   row: StoredContextEvent
@@ -94,6 +133,10 @@ export function hydrateContextEvent(
         replacesSeqRange: Array.isArray(meta.replacesSeqRange)
           ? (meta.replacesSeqRange as [number, number])
           : undefined,
+        metadata:
+          meta.metadata && typeof meta.metadata === "object"
+            ? (meta.metadata as Record<string, unknown>)
+            : undefined,
         timestamp: row.created_at
       };
 
@@ -161,8 +204,17 @@ export function dehydrateContextEvent(
   switch (event.action) {
     case ContextEventAction.USER_MESSAGE:
     case ContextEventAction.AGENT_MESSAGE:
-    case ContextEventAction.COMPACTION:
       return { ...base, content: event.content };
+
+    case ContextEventAction.COMPACTION:
+      return {
+        ...base,
+        content: event.content,
+        metadata: serializeMetadata({
+          replacesSeqRange: event.replacesSeqRange,
+          metadata: event.metadata
+        })
+      };
 
     case ContextEventAction.SYSTEM_INSTRUCTION:
       return {

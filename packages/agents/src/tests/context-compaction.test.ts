@@ -38,4 +38,21 @@ describe("context compaction", () => {
     ]);
     expect(afterContents.at(-1)).toContain("compacted:8:");
   });
+
+  it("persists compaction metadata when summarizer returns structured output", async () => {
+    const agent = await getAgentByName(env.TestContextAgent, "compact-meta");
+
+    const sessionId = await agent.createSessionWithTurns(5);
+    const summary = await agent.compactAndSummarize(sessionId, 4, true);
+
+    expect(summary).toContain("compacted:6:");
+
+    const metadata = (await agent.getLastCompactionMetadata(
+      sessionId
+    )) as Record<string, unknown> | null;
+
+    expect(metadata).not.toBeNull();
+    expect(metadata?.["compactedCount"]).toBe(6);
+    expect(typeof metadata?.["preview"]).toBe("string");
+  });
 });

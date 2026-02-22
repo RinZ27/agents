@@ -8,23 +8,11 @@ import {
 } from "@cloudflare/agents-ui";
 import type { ConnectionStatus } from "@cloudflare/agents-ui";
 import { Info } from "@phosphor-icons/react";
-import type { ChatMode, ChatResult, EventRow, SessionSummary } from "./server";
+import type { ChatResult, EventRow, SessionSummary } from "./server";
 
 type ChatEntry = {
   role: "user" | "assistant";
   content: string;
-};
-
-const modeLabels: Record<ChatMode, string> = {
-  default: "Base",
-  memory: "Memory",
-  artifact: "Artifacts"
-};
-
-const modeDescriptions: Record<ChatMode, string> = {
-  default: "Recent session events only",
-  memory: "Inject memory snippets before response",
-  artifact: "Inject artifact references before response"
 };
 
 export default function App() {
@@ -32,12 +20,13 @@ export default function App() {
     useState<ConnectionStatus>("connecting");
   const [sessionId, setSessionId] = useState<string>("");
   const [message, setMessage] = useState("");
-  const [mode, setMode] = useState<ChatMode>("default");
   const [chat, setChat] = useState<ChatEntry[]>([]);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [traces, setTraces] = useState<ChatResult["traces"]>([]);
   const [handoffPreview, setHandoffPreview] = useState<string[]>([]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [lastMemorySnippetCount, setLastMemorySnippetCount] = useState(0);
+  const [isSending, setIsSending] = useState(false);
   const [lastAction, setLastAction] = useState("Waiting for first message...");
 
   const agent = useAgent<Record<string, never>>({
@@ -92,6 +81,7 @@ export default function App() {
     setSessionId(result.sessionId);
     setTraces([]);
     setHandoffPreview([]);
+    setLastMemorySnippetCount(0);
     await refreshEvents(result.sessionId);
     await refreshSessions();
     setLastAction(`Started session ${result.sessionId.slice(0, 8)}`);
@@ -104,26 +94,36 @@ export default function App() {
   }, [connected, refreshSessions, sessionId, startSession]);
 
   const sendMessage = useCallback(async () => {
-    if (!sessionId || !message.trim()) return;
+    if (!sessionId || !message.trim() || isSending) return;
 
     const userMessage = message.trim();
     setMessage("");
+    setIsSending(true);
 
-    const result = await callAgent<ChatResult>("chat", [
-      sessionId,
-      userMessage,
-      mode
-    ]);
+    try {
+      const result = await callAgent<ChatResult>("chat", [
+        sessionId,
+        userMessage
+      ]);
 
-    setSessionId(result.sessionId);
-    setTraces(result.traces);
-    setHandoffPreview(result.handoffPreview);
-    await refreshEvents(result.sessionId);
-    await refreshSessions();
-    setLastAction(
-      `Processed in ${modeLabels[mode]} mode · traces ${result.traces.length}`
-    );
-  }, [callAgent, message, mode, refreshEvents, refreshSessions, sessionId]);
+      setSessionId(result.sessionId);
+      setTraces(result.traces);
+      setHandoffPreview(result.handoffPreview);
+      setLastMemorySnippetCount(result.memorySnippetCount);
+      await refreshEvents(result.sessionId);
+      await refreshSessions();
+      setLastAction(`Processed message · traces ${result.traces.length}`);
+    } finally {
+      setIsSending(false);
+    }
+  }, [
+    callAgent,
+    isSending,
+    message,
+    refreshEvents,
+    refreshSessions,
+    sessionId
+  ]);
 
   const compact = useCallback(async () => {
     if (!sessionId) return;
@@ -145,6 +145,7 @@ export default function App() {
       setSessionId(id);
       setTraces([]);
       setHandoffPreview([]);
+      setLastMemorySnippetCount(0);
       await refreshEvents(id);
       setLastAction(`Switched to session ${id.slice(0, 8)}`);
     },
@@ -184,6 +185,7 @@ export default function App() {
       setSessionId(next.id);
       setTraces([]);
       setHandoffPreview([]);
+      setLastMemorySnippetCount(0);
       await refreshEvents(next.id);
       setLastAction(`Removed session and switched to ${next.id.slice(0, 8)}`);
     },
@@ -244,10 +246,14 @@ export default function App() {
                 ? `✅ Compaction ready (${events.length} events)`
                 : `⏳ ${eventsUntilCompaction} more event${eventsUntilCompaction === 1 ? "" : "s"} for compaction`}
             </Badge>
-            <Button variant="secondary" onClick={startSession}>
+            <Button
+              variant="secondary"
+              onClick={startSession}
+              disabled={isSending}
+            >
               New session
             </Button>
-            <Button variant="secondary" onClick={compact}>
+            <Button variant="secondary" onClick={compact} disabled={isSending}>
               Compact old events
             </Button>
           </div>
@@ -292,6 +298,7 @@ export default function App() {
                           session.id === sessionId ? "primary" : "secondary"
                         }
                         onClick={() => void switchSession(session.id)}
+                        disabled={isSending}
                       >
                         {session.id === sessionId ? "Current" : "Switch"}
                       </Button>
@@ -299,6 +306,7 @@ export default function App() {
                         size="sm"
                         variant="secondary"
                         onClick={() => void removeSession(session.id)}
+                        disabled={isSending}
                       >
                         Remove
                       </Button>
@@ -317,20 +325,9 @@ export default function App() {
               <Badge variant="secondary">{hasChat ? "✅ Live" : "Idle"}</Badge>
             </div>
 
-            <div className="mb-2 flex flex-wrap gap-2">
-              {(Object.keys(modeLabels) as ChatMode[]).map((value) => (
-                <Button
-                  key={value}
-                  variant={mode === value ? "primary" : "secondary"}
-                  onClick={() => setMode(value)}
-                >
-                  {modeLabels[value]}
-                </Button>
-              ))}
-            </div>
             <span className="mb-3 block">
               <Text size="sm" variant="secondary">
-                {modeDescriptions[mode]}
+                Memory mode is always enabled in this demo.
               </Text>
             </span>
 
@@ -343,7 +340,11 @@ export default function App() {
                   value={message}
                   onChange={(event) => setMessage(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
+                    if (
+                      event.key === "Enter" &&
+                      !event.shiftKey &&
+                      !isSending
+                    ) {
                       event.preventDefault();
                       void sendMessage();
                     }
@@ -351,14 +352,15 @@ export default function App() {
                   placeholder="Type a prompt and press Enter…"
                   aria-label="Chat input"
                   className="w-full"
+                  disabled={isSending}
                 />
               </div>
               <div className="mt-2 flex justify-end">
                 <Button
                   onClick={sendMessage}
-                  disabled={!message.trim() || !connected}
+                  disabled={!message.trim() || !connected || isSending}
                 >
-                  Send
+                  {isSending ? "Sending..." : "Send"}
                 </Button>
               </div>
             </div>
@@ -404,6 +406,11 @@ export default function App() {
             <span className="mt-2 block">
               <Text size="sm" variant="secondary">
                 Processor trace: {traceSummary}
+              </Text>
+            </span>
+            <span className="mt-1 block">
+              <Text size="sm" variant="secondary">
+                Last injected memory snippets: {lastMemorySnippetCount}
               </Text>
             </span>
 

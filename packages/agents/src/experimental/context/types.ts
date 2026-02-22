@@ -44,6 +44,41 @@ export interface StoredContextEvent {
   created_at: number;
 }
 
+export interface StoredContextMemoryEntry {
+  id: string;
+  session_id: string;
+  memory_key: string;
+  memory_value: string;
+  source: string | null;
+  score: number | null;
+  metadata: string | null;
+  updated_at: number;
+}
+
+export interface ContextMemoryEntry {
+  id: string;
+  sessionId: string;
+  key: string;
+  value: string;
+  source?: string;
+  score?: number;
+  metadata?: Record<string, unknown>;
+  updatedAt: number;
+}
+
+export interface UpsertContextMemoryInput {
+  key: string;
+  value: string;
+  source?: string;
+  score?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface LoadContextMemoryOptions {
+  keys?: string[];
+  limit?: number;
+}
+
 interface BaseContextEvent {
   id: string;
   sessionId: string;
@@ -82,6 +117,7 @@ export type ContextSessionEvent =
       action: typeof ContextEventAction.COMPACTION;
       content: string;
       replacesSeqRange?: [number, number];
+      metadata?: Record<string, unknown>;
     })
   | (BaseContextEvent & {
       action: typeof ContextEventAction.MEMORY_SNIPPET;
@@ -170,6 +206,20 @@ export interface ArtifactResolver {
   }): Promise<ArtifactHandle[]>;
 }
 
+export interface StructuredMemoryProvider {
+  load(input: {
+    sessionId: string;
+    latestUserMessage: string | null;
+    messages: ContextMessage[];
+  }): Promise<Record<string, unknown>>;
+  toSnippets?(input: {
+    memory: Record<string, unknown>;
+    sessionId: string;
+    latestUserMessage: string | null;
+    messages: ContextMessage[];
+  }): Promise<MemorySnippet[]> | MemorySnippet[];
+}
+
 export interface ContextCompileState {
   sessionId: string;
   events: ContextSessionEvent[];
@@ -189,14 +239,20 @@ export interface CompileContextOptions extends WorkingContextOptions {
   load?: LoadContextEventsOptions;
   processors?: ContextProcessor[];
   memoryRetriever?: MemoryRetriever;
+  structuredMemoryProvider?: StructuredMemoryProvider;
   artifactResolver?: ArtifactResolver;
+}
+
+export interface CompactionSummary {
+  content: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CompactionSummarizer {
   summarize(input: {
     sessionId: string;
     events: ContextSessionEvent[];
-  }): Promise<string>;
+  }): Promise<string | CompactionSummary>;
 }
 
 export interface CompactSessionOptions {

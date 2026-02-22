@@ -5,7 +5,7 @@ This example demonstrates a production-oriented context management workflow in A
 - durable Session + Event storage (`ContextSessionAgent`)
 - ephemeral per-call `WorkingContext`
 - explicit context compiler pipeline with processor traces
-- on-demand memory/artifact injection
+- on-demand memory injection
 - scoped multi-agent handoff context
 - session compaction
 
@@ -14,16 +14,20 @@ This example demonstrates a production-oriented context management workflow in A
 ```bash
 npm install
 cd examples/context-management
+```
+
+Start dev:
+
+```bash
 npm run start
 ```
 
 ## What to try
 
-1. Send a few messages in **Default** mode.
-2. Switch to **Inject memory** and observe new context traces/events.
-3. Switch to **Inject artifact handle** and compare output.
-4. Click **Compact old events** after multiple turns.
-5. Inspect the **Scoped handoff preview** and persisted event stream.
+1. Send a few profile messages (location/work/likes) in memory mode.
+2. Ask follow-up questions to verify memory recall.
+3. Click **Compact old events** after multiple turns.
+4. Inspect the **Scoped handoff preview** and persisted event stream.
 
 ## Key files
 

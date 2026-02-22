@@ -4,7 +4,9 @@ import {
   contextEventToMessage,
   contextMessageToEvent,
   dehydrateContextEvent,
-  hydrateContextEvent
+  getEventMetadata,
+  hydrateContextEvent,
+  setEventMetadata
 } from "../utils";
 
 describe("context utils", () => {
@@ -63,5 +65,34 @@ describe("context utils", () => {
     });
 
     expect(event.action).toBe(ContextEventAction.TOOL_CALL_REQUEST);
+  });
+
+  it("round trips compaction metadata and typed helpers", () => {
+    const event: ContextSessionEvent = {
+      id: "c1",
+      sessionId: "s1",
+      seq: 3,
+      timestamp: Date.now(),
+      action: ContextEventAction.COMPACTION,
+      content: "summary",
+      replacesSeqRange: [0, 2],
+      metadata: {
+        entities: ["cloudflare", "agents"],
+        source: "test"
+      }
+    };
+
+    const row = dehydrateContextEvent(event);
+    const hydrated = hydrateContextEvent(row);
+
+    expect(hydrated.action).toBe(ContextEventAction.COMPACTION);
+    if (hydrated.action === ContextEventAction.COMPACTION) {
+      const metadata = getEventMetadata<{ source: string }>(hydrated);
+      expect(metadata?.source).toBe("test");
+
+      const updated = setEventMetadata(hydrated, { source: "updated" });
+      const updatedMeta = getEventMetadata<{ source: string }>(updated);
+      expect(updatedMeta?.source).toBe("updated");
+    }
   });
 });
