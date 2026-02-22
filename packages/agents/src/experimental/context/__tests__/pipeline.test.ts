@@ -110,6 +110,72 @@ describe("context pipeline", () => {
     ).toBe(true);
   });
 
+  it("respects custom eventToMessage mapper in default processors", async () => {
+    const now = Date.now();
+    const events = [
+      {
+        id: "custom-1",
+        sessionId: "s1",
+        seq: 0,
+        timestamp: now,
+        action: ContextEventAction.USER_MESSAGE,
+        content: "hello"
+      }
+    ];
+
+    const state: ContextCompileState = {
+      sessionId: "s1",
+      events,
+      messages: [],
+      systemInstructions: [],
+      staticSystemInstructions: [],
+      traces: [],
+      metadata: {}
+    };
+
+    const processors = createDefaultProcessors({
+      eventToMessage(event) {
+        return {
+          role: "user",
+          content: `[custom] ${event.action}`
+        };
+      }
+    });
+
+    const out = await runContextProcessors(state, processors);
+    expect(out.messages[0]?.content).toBe("[custom] user_message");
+  });
+
+  it("applies token budget trimming when configured", async () => {
+    const now = Date.now();
+    const events = Array.from({ length: 6 }, (_, i) => ({
+      id: `b-${i}`,
+      sessionId: "s1",
+      seq: i,
+      timestamp: now + i,
+      action: ContextEventAction.USER_MESSAGE as const,
+      content: `message-${i}-xxxxxxxxxxxxxxxxxxxxxxxx`
+    }));
+
+    const state: ContextCompileState = {
+      sessionId: "s1",
+      events,
+      messages: [],
+      systemInstructions: [],
+      staticSystemInstructions: [],
+      traces: [],
+      metadata: {}
+    };
+
+    const out = await runContextProcessors(
+      state,
+      createDefaultProcessors({ maxTokenEstimate: 10 })
+    );
+
+    expect(out.traces.some((t) => t.processor === "token-budget")).toBe(true);
+    expect(out.messages.length).toBeLessThan(events.length);
+  });
+
   it("creates latest-turn scoped handoff with recasting", () => {
     const ctx = buildWorkingContext([
       {

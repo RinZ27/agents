@@ -22,7 +22,7 @@ export interface ToolCall {
   type: "function";
   function: {
     name: string;
-    arguments: Record<string, unknown>;
+    arguments: string | Record<string, unknown>;
   };
 }
 
@@ -242,6 +242,7 @@ export interface CompileContextOptions extends WorkingContextOptions {
   memoryRetriever?: MemoryRetriever;
   structuredMemoryProvider?: StructuredMemoryProvider;
   artifactResolver?: ArtifactResolver;
+  maxTokenEstimate?: number;
 }
 
 export interface CompactionSummary {

@@ -19,7 +19,7 @@ describe("context events", () => {
     expect(result.error).toMatch(/not found/);
   });
 
-  it("supports loadEvents action filters and tail ordering", async () => {
+  it("supports loadEvents action filters, tail ordering, and since filters", async () => {
     const agent = await getAgentByName(env.TestContextAgent, "events-filters");
     const sessionId = await agent.createSessionWithTurns(3);
 
@@ -38,5 +38,32 @@ describe("context events", () => {
     });
 
     expect(headUserOnly).toEqual(["user_message", "user_message"]);
+
+    const since = Date.now();
+    await agent.appendUserMessages(sessionId, ["recent-a", "recent-b"]);
+
+    const recentContents = await agent.getFilteredEventContents(sessionId, {
+      since,
+      actions: ["user_message"],
+      tail: false,
+      limit: 10
+    });
+
+    expect(recentContents).toEqual(["recent-a", "recent-b"]);
+  });
+
+  it("deletes session and cascades events + memory", async () => {
+    const agent = await getAgentByName(env.TestContextAgent, "events-delete");
+    const sessionId = await agent.createSessionWithTurns(2);
+
+    await agent.upsertMemoryEntries(sessionId, [
+      { key: "location", value: "London" },
+      { key: "like", value: "golf" }
+    ]);
+
+    const result = await agent.deleteSessionAndVerifyCascade(sessionId);
+    expect(result.sessionExists).toBe(false);
+    expect(result.eventCount).toBe(0);
+    expect(result.memoryCount).toBe(0);
   });
 });

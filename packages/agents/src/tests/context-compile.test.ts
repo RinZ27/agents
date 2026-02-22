@@ -40,4 +40,9 @@ describe("context compile + persistence", () => {
     expect(compiled.traceProcessors).toContain("event-to-message");
     expect(compiled.memoryMessageCount).toBeGreaterThan(0);
   });
+
+  it("destroy completes without throwing", async () => {
+    const agent = await getAgentByName(env.TestContextAgent, "compile-destroy");
+    await expect(agent.destroyForTest()).resolves.toBeUndefined();
+  });
 });

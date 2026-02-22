@@ -46,7 +46,10 @@ export const workersAIContextAdapter = {
                 type: "function",
                 function: {
                   name: call.function.name,
-                  arguments: JSON.stringify(call.function.arguments ?? {})
+                  arguments:
+                    typeof call.function.arguments === "string"
+                      ? call.function.arguments
+                      : JSON.stringify(call.function.arguments ?? {})
                 }
               }))
             }

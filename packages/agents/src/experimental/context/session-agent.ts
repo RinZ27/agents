@@ -204,15 +204,25 @@ export class ContextSessionAgent<
     if (eventIds.length === 0) return;
 
     this.ctx.storage.transactionSync(() => {
-      for (const eventId of eventIds) {
-        this.sql`
+      const placeholders = eventIds.map(() => "?").join(",");
+      this.ctx.storage.sql.exec(
+        `
           DELETE FROM cf_agents_context_events
-          WHERE id = ${eventId} AND session_id = ${sessionId}
-        `;
-      }
+          WHERE session_id = ? AND id IN (${placeholders})
+        `,
+        sessionId,
+        ...eventIds
+      );
     });
   }
 
+  /**
+   * Upserts memory entries.
+   *
+   * With `replaceByKey: false` (default), uniqueness is `(session_id, key, value)`.
+   * Re-inserting the same key+value updates source/score/metadata/updated_at in
+   * place rather than creating duplicate rows.
+   */
   upsertMemory(
     sessionId: string,
     entries: UpsertContextMemoryInput[],
@@ -239,7 +249,7 @@ export class ContextSessionAgent<
         }
 
         this.sql`
-          INSERT OR REPLACE INTO cf_agents_context_memory
+          INSERT INTO cf_agents_context_memory
             (id, session_id, memory_key, memory_value, source, score, metadata, updated_at)
           VALUES
             (${crypto.randomUUID()}, ${sessionId}, ${key}, ${value}, ${
@@ -247,6 +257,12 @@ export class ContextSessionAgent<
             }, ${entry.score ?? null}, ${
               entry.metadata ? JSON.stringify(entry.metadata) : null
             }, ${now})
+          ON CONFLICT(session_id, memory_key, memory_value)
+          DO UPDATE SET
+            source = excluded.source,
+            score = excluded.score,
+            metadata = excluded.metadata,
+            updated_at = excluded.updated_at
         `;
       }
 

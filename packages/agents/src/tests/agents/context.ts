@@ -114,6 +114,49 @@ export class TestContextAgent extends ContextSessionAgent<
   }
 
   @callable()
+  getFilteredEventContents(
+    sessionId: string,
+    options: {
+      limit?: number;
+      since?: number;
+      actions?: string[];
+      tail?: boolean;
+    }
+  ): string[] {
+    return this.loadEvents(sessionId, {
+      limit: options.limit,
+      since: options.since,
+      actions: options.actions as ContextSessionEvent["action"][] | undefined,
+      tail: options.tail
+    }).map((event) => {
+      if ("content" in event && typeof event.content === "string") {
+        return event.content;
+      }
+      return event.action;
+    });
+  }
+
+  @callable()
+  getSessionExists(sessionId: string): boolean {
+    return this.getSession(sessionId) !== null;
+  }
+
+  @callable()
+  deleteSessionAndVerifyCascade(sessionId: string): {
+    sessionExists: boolean;
+    eventCount: number;
+    memoryCount: number;
+  } {
+    this.deleteSession(sessionId);
+    return {
+      sessionExists: this.getSession(sessionId) !== null,
+      eventCount: this.loadEvents(sessionId, { limit: 1000, tail: false })
+        .length,
+      memoryCount: this.loadMemory(sessionId, { limit: 1000 }).length
+    };
+  }
+
+  @callable()
   getEventContents(sessionId: string): string[] {
     return this.loadEvents(sessionId, { limit: 10_000, tail: false }).map(
       (event) => {
@@ -186,6 +229,11 @@ export class TestContextAgent extends ContextSessionAgent<
         (m) => m.role === "system" && m.content.includes("[Memory")
       ).length
     };
+  }
+
+  @callable()
+  async destroyForTest(): Promise<void> {
+    await this.destroy();
   }
 
   @callable()

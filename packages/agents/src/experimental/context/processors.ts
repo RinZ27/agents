@@ -4,6 +4,7 @@ import {
   type ArtifactResolver,
   type CompileContextOptions,
   type ContextCompileState,
+  type ContextMessage,
   type ContextProcessor,
   type ContextSessionEvent,
   type MemoryRetriever,
@@ -41,16 +42,56 @@ export function createSelectTailEventsProcessor(
 }
 
 /** @experimental */
-export function createEventToMessageProcessor(): ContextProcessor {
+export function createEventToMessageProcessor(
+  mapper: (
+    event: ContextSessionEvent
+  ) => ContextMessage | null = contextEventToMessage
+): ContextProcessor {
   return {
     name: "event-to-message",
     async process(state) {
-      const messages = state.events
-        .map(contextEventToMessage)
-        .filter((msg) => msg !== null);
+      const messages = state.events.map(mapper).filter((msg) => msg !== null);
       return {
         ...state,
         messages
+      };
+    }
+  };
+}
+
+/** @experimental */
+export function createTokenBudgetProcessor(
+  maxTokenEstimate: number
+): ContextProcessor {
+  return {
+    name: "token-budget",
+    async process(state) {
+      if (maxTokenEstimate <= 0) return state;
+
+      const estimate = (text: string): number => Math.ceil(text.length / 4);
+      const systemEstimate = state.staticSystemInstructions
+        .concat(state.systemInstructions)
+        .reduce((sum, text) => sum + estimate(text), 0);
+
+      let used = systemEstimate;
+      const selected: typeof state.messages = [];
+
+      for (let i = state.messages.length - 1; i >= 0; i--) {
+        const msg = state.messages[i];
+        const msgCost = estimate(msg.content);
+        if (used + msgCost > maxTokenEstimate) {
+          continue;
+        }
+
+        selected.push(msg);
+        used += msgCost;
+      }
+
+      selected.reverse();
+
+      return {
+        ...state,
+        messages: selected
       };
     }
   };
@@ -241,7 +282,7 @@ export function createDefaultProcessors(
   const limit = options.load?.limit ?? DEFAULT_LIMIT;
   const processors: ContextProcessor[] = [
     createSelectTailEventsProcessor(limit),
-    createEventToMessageProcessor()
+    createEventToMessageProcessor(options.eventToMessage)
   ];
 
   if (options.structuredMemoryProvider) {
@@ -259,6 +300,10 @@ export function createDefaultProcessors(
   }
 
   processors.push(createStablePrefixProcessor());
+
+  if (typeof options.maxTokenEstimate === "number") {
+    processors.push(createTokenBudgetProcessor(options.maxTokenEstimate));
+  }
 
   return processors;
 }

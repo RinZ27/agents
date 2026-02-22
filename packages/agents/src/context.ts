@@ -1,8 +1,9 @@
 /**
- * Stable context utilities for composing LLM payloads.
+ * Context composition utilities for building LLM payloads.
  *
- * This surface intentionally excludes durable session storage and event schemas.
- * For experimental session/event primitives, use `agents/experimental/context`.
+ * Note: these are convenience re-exports from the experimental context
+ * implementation and may evolve as that API stabilizes.
+ * For full session/event primitives, use `agents/experimental/context`.
  */
 
 export {

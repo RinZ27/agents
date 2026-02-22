@@ -34,6 +34,7 @@ export {
   createStructuredMemoryProcessor,
   createArtifactResolverProcessor,
   createStablePrefixProcessor,
+  createTokenBudgetProcessor,
   runContextProcessors
 } from "./processors";
 export { createScopedHandoffContext } from "./handoff";

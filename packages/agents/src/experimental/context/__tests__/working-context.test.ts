@@ -1,7 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { WorkingContext } from "../working-context";
+import { ContextEventAction } from "../types";
+import { WorkingContext, buildWorkingContext } from "../working-context";
 
 describe("working context cache-friendly mapping", () => {
+  it("extracts system instructions from events", () => {
+    const built = buildWorkingContext([
+      {
+        id: "sys-1",
+        sessionId: "s1",
+        seq: 1,
+        timestamp: Date.now(),
+        action: ContextEventAction.SYSTEM_INSTRUCTION,
+        content: "always concise",
+        stable: true
+      },
+      {
+        id: "u-1",
+        sessionId: "s1",
+        seq: 2,
+        timestamp: Date.now(),
+        action: ContextEventAction.USER_MESSAGE,
+        content: "hello"
+      }
+    ]);
+
+    expect(built.staticSystemInstructions).toEqual(["always concise"]);
+    expect(built.messages[0]?.role).toBe("user");
+  });
+
   it("emits system instructions before conversation messages", () => {
     const context = new WorkingContext({
       staticSystemInstructions: ["stable-1"],
