@@ -29,6 +29,12 @@ npm run start
 3. Click **Compact old events** after multiple turns.
 4. Inspect the **Scoped handoff preview** and persisted event stream.
 
+## Known limitations
+
+- The context pipeline currently uses event-count limits (`load.limit`), not token-aware budgeting.
+- Memory extraction uses a fast heuristic + single-model fallback tuned for demo responsiveness.
+- Replies are fact-based demo outputs to make memory behavior deterministic and easy to verify.
+
 ## Key files
 
 - `src/server.ts` — `ContextDemoAgent` implementation using `agents/experimental/context`

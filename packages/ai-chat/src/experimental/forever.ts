@@ -30,9 +30,23 @@
 import { keepAlive } from "agents/experimental/forever";
 import type { AIChatAgent } from "../index";
 
-console.warn(
-  "[@cloudflare/ai-chat/experimental/forever] WARNING: You are using an experimental API that WILL break between releases."
-);
+const AI_CHAT_FOREVER_WARNING_FLAG =
+  "__cf_ai_chat_experimental_forever_warned__";
+const aiChatForeverWarningState = globalThis as typeof globalThis &
+  Record<string, unknown> & {
+    __CF_AGENTS_SUPPRESS_EXPERIMENTAL_WARNINGS__?: boolean;
+  };
+
+if (
+  aiChatForeverWarningState.__CF_AGENTS_SUPPRESS_EXPERIMENTAL_WARNINGS__ !==
+    true &&
+  aiChatForeverWarningState[AI_CHAT_FOREVER_WARNING_FLAG] !== true
+) {
+  console.warn(
+    "[@cloudflare/ai-chat/experimental/forever] WARNING: You are using an experimental API that WILL break between releases."
+  );
+  aiChatForeverWarningState[AI_CHAT_FOREVER_WARNING_FLAG] = true;
+}
 
 // ── Mixin ─────────────────────────────────────────────────────────────
 

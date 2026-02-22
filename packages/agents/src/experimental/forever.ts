@@ -33,9 +33,21 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { nanoid } from "nanoid";
 import type { Agent } from "../index";
 
-console.warn(
-  "[agents/experimental/forever] WARNING: You are using an experimental API that WILL break between releases."
-);
+const FOREVER_WARNING_FLAG = "__cf_agents_experimental_forever_warned__";
+const foreverWarningState = globalThis as typeof globalThis &
+  Record<string, unknown> & {
+    __CF_AGENTS_SUPPRESS_EXPERIMENTAL_WARNINGS__?: boolean;
+  };
+
+if (
+  foreverWarningState.__CF_AGENTS_SUPPRESS_EXPERIMENTAL_WARNINGS__ !== true &&
+  foreverWarningState[FOREVER_WARNING_FLAG] !== true
+) {
+  console.warn(
+    "[agents/experimental/forever] WARNING: You are using an experimental API that WILL break between releases."
+  );
+  foreverWarningState[FOREVER_WARNING_FLAG] = true;
+}
 
 // ── Types ─────────────────────────────────────────────────────────────
 

@@ -8,9 +8,21 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  */
 
-console.warn(
-  "[agents/experimental/context] WARNING: You are using an experimental API that WILL break between releases."
-);
+const CONTEXT_WARNING_FLAG = "__cf_agents_experimental_context_warned__";
+const contextWarningState = globalThis as typeof globalThis &
+  Record<string, unknown> & {
+    __CF_AGENTS_SUPPRESS_EXPERIMENTAL_WARNINGS__?: boolean;
+  };
+
+if (
+  contextWarningState.__CF_AGENTS_SUPPRESS_EXPERIMENTAL_WARNINGS__ !== true &&
+  contextWarningState[CONTEXT_WARNING_FLAG] !== true
+) {
+  console.warn(
+    "[agents/experimental/context] WARNING: You are using an experimental API that WILL break between releases."
+  );
+  contextWarningState[CONTEXT_WARNING_FLAG] = true;
+}
 
 export { ContextSessionAgent } from "./session-agent";
 export { WorkingContext, buildWorkingContext } from "./working-context";
