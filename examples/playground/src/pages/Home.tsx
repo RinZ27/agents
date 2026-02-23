@@ -37,6 +37,11 @@ const features = [
         description: "Agent naming strategies"
       },
       {
+        name: "Readonly",
+        path: "/core/readonly",
+        description: "Read-only agent access"
+      },
+      {
         name: "Retry",
         path: "/core/retry",
         description: "Retry with backoff and shouldRetry"
@@ -55,6 +60,11 @@ const features = [
         name: "Tools",
         path: "/ai/tools",
         description: "Client-side tool execution"
+      },
+      {
+        name: "Codemode",
+        path: "/ai/codemode",
+        description: "AI code generation and editing"
       }
     ]
   },
