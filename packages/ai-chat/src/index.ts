@@ -680,7 +680,7 @@ export class AIChatAgent<
     this.onRequest = async (request: Request) => {
       return this._tryCatchChat(async () => {
         const url = new URL(request.url);
-        if (url.pathname.endsWith("/get-messages")) {
+        if (url.pathname.split("/").pop() === "get-messages") {
           return Response.json(this._loadMessagesFromDb());
         }
         return _onRequest(request);

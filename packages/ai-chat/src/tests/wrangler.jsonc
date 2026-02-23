@@ -17,6 +17,10 @@
       {
         "class_name": "AgentWithSuperCall",
         "name": "AgentWithSuperCall"
+      },
+      {
+        "class_name": "AgentWithoutSuperCall",
+        "name": "AgentWithoutSuperCall"
       }
     ]
   },
@@ -29,6 +33,10 @@
     {
       "new_sqlite_classes": ["AgentWithSuperCall"],
       "tag": "v2"
+    },
+    {
+      "new_sqlite_classes": ["AgentWithoutSuperCall"],
+      "tag": "v3"
     }
   ]
 }
