@@ -1,5 +1,13 @@
 # @cloudflare/codemode
 
+## 0.1.1
+
+### Patch Changes
+
+- [#973](https://github.com/cloudflare/agents/pull/973) [`969fbff`](https://github.com/cloudflare/agents/commit/969fbff702d5702c1f0ea6faaecb3dfd0431a01b) Thanks [@threepointone](https://github.com/threepointone)! - Update dependencies
+
+- [#961](https://github.com/cloudflare/agents/pull/961) [`f6aa79f`](https://github.com/cloudflare/agents/commit/f6aa79f3bf86922db73b4d33439262aefcbcf817) Thanks [@mattzcarey](https://github.com/mattzcarey)! - Updated default tool prompt to explicitly request JavaScript code from LLMs, preventing TypeScript syntax errors in the Dynamic Worker executor.
+
 ## 0.1.0
 
 ### Minor Changes

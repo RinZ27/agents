@@ -1,5 +1,63 @@
 # @cloudflare/agents
 
+## 0.6.0
+
+### Minor Changes
+
+- [#565](https://github.com/cloudflare/agents/pull/565) [`0e9a607`](https://github.com/cloudflare/agents/commit/0e9a607888a4ef31adc226d0fa939b9125cbfea0) Thanks [@mattzcarey](https://github.com/mattzcarey)! - Add RPC transport for MCP: connect an Agent to an McpAgent via Durable Object bindings
+
+  **New feature: `addMcpServer` with DO binding**
+
+  Agents can now connect to McpAgent instances in the same Worker using RPC transport — no HTTP, no network overhead. Pass the Durable Object namespace directly:
+
+  ```typescript
+  // In your Agent
+  await this.addMcpServer("counter", env.MY_MCP);
+
+  // With props
+  await this.addMcpServer("counter", env.MY_MCP, {
+    props: { userId: "user-123", role: "admin" },
+  });
+  ```
+
+  The `addMcpServer` method now accepts `string | DurableObjectNamespace` as the second parameter with proper TypeScript overloads, so HTTP and RPC paths are type-safe and cannot be mixed.
+
+  **Hibernation support**
+
+  RPC connections survive Durable Object hibernation automatically. The binding name and props are persisted to storage and restored on wake-up, matching the behavior of HTTP MCP connections. No need to manually re-establish connections in `onStart()`.
+
+  **Deduplication**
+
+  Calling `addMcpServer` with the same server name multiple times (e.g., across hibernation cycles) now returns the existing connection instead of creating duplicates. This applies to both RPC and HTTP connections. Connection IDs are stable across hibernation restore.
+
+  **Other changes**
+  - Rewrote `RPCClientTransport` to accept a `DurableObjectNamespace` and create the stub internally via `getServerByName` from partyserver, instead of requiring a pre-constructed stub
+  - Rewrote `RPCServerTransport` to drop session management (unnecessary for DO-scoped RPC) and use `JSONRPCMessageSchema` from the MCP SDK for validation instead of 170 lines of hand-written validation
+  - Removed `_resolveRpcBinding`, `_buildRpcTransportOptions`, `_buildHttpTransportOptions`, and `_connectToMcpServerInternal` from the Agent base class — RPC transport logic no longer leaks into `index.ts`
+  - Added `AddRpcMcpServerOptions` type (discriminated from `AddMcpServerOptions`) so `props` is only available when passing a binding
+  - Added `RPC_DO_PREFIX` constant used consistently across all RPC naming
+  - Fixed `MCPClientManager.callTool` passing `serverId` through to `conn.client.callTool` (it should be stripped before the call)
+  - Added `getRpcServersFromStorage()` and `saveRpcServerToStorage()` to `MCPClientManager` for hibernation persistence
+  - `restoreConnectionsFromStorage` now skips RPC servers (restored separately by the Agent class which has access to `env`)
+  - Reduced `rpc.ts` from 609 lines to 245 lines
+  - Reduced `types.ts` from 108 lines to 26 lines
+  - Updated `mcp-rpc-transport` example to use Workers AI (no API keys needed), Kumo/agents-ui components, and Tailwind CSS
+  - Updated MCP transports documentation
+
+### Patch Changes
+
+- [#973](https://github.com/cloudflare/agents/pull/973) [`969fbff`](https://github.com/cloudflare/agents/commit/969fbff702d5702c1f0ea6faaecb3dfd0431a01b) Thanks [@threepointone](https://github.com/threepointone)! - Update dependencies
+
+- [#963](https://github.com/cloudflare/agents/pull/963) [`b848008`](https://github.com/cloudflare/agents/commit/b848008549f57147e972a672f88789a05fa2c14d) Thanks [@threepointone](https://github.com/threepointone)! - Make `callbackHost` optional in `addMcpServer` for non-OAuth servers
+
+  Previously, `addMcpServer()` always required a `callbackHost` (either explicitly or derived from the request context) and eagerly created an OAuth auth provider, even when connecting to MCP servers that do not use OAuth. This made simple non-OAuth connections unnecessarily difficult, especially from WebSocket callable methods where the request context origin is unreliable.
+
+  Now, `callbackHost` and the OAuth auth provider are only required when the MCP server actually needs OAuth (returns a 401/AUTHENTICATING state). For non-OAuth servers, `addMcpServer("name", url)` works with no additional options. If an OAuth server is encountered without a `callbackHost`, a clear error is thrown: "This MCP server requires OAuth authentication. Provide callbackHost in addMcpServer options to enable the OAuth flow."
+
+  The restore-from-storage flow also handles missing callback URLs gracefully, skipping auth provider creation for non-OAuth servers.
+
+- [`97c6702`](https://github.com/cloudflare/agents/commit/97c67023a105dfe9413ebb0ea7c9888bb9335456) Thanks [@threepointone](https://github.com/threepointone)! - Add one-time console warning when using RPC transport (DO binding) with `addMcpServer`, noting the API is experimental and linking to the feedback issue.
+
 ## 0.5.1
 
 ### Patch Changes
