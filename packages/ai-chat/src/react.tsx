@@ -431,14 +431,11 @@ export function useAgentChat<
   const onDataRef = useRef(onData);
   onDataRef.current = onData;
 
-  const agentUrl = new URL(
-    `${
-      // @ts-expect-error we're using a protected _url property that includes query params
-      ((agent._url as string | null) || agent._pkurl)
-        ?.replace("ws://", "http://")
-        .replace("wss://", "https://")
-    }`
-  );
+  const rawUrl = (agent._url as string | null) || agent._pkurl;
+  const agentUrl = new URL(rawUrl);
+  agentUrl.protocol = agentUrl.protocol
+    .replace("ws:", "http:")
+    .replace("wss:", "https:");
 
   agentUrl.searchParams.delete("_pk");
   const agentUrlString = agentUrl.toString();
